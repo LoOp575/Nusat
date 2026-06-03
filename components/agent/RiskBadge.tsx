@@ -1,7 +1,7 @@
-import type { AgentAnalysis } from "@/lib/types/market";
+import type { EngineAnalysis } from "@/lib/types/market";
 
 type RiskBadgeProps = {
-  level: AgentAnalysis["riskLevel"];
+  level: EngineAnalysis["decision"]["riskLevel"];
 };
 
 const styles = {

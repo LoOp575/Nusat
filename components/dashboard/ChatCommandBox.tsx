@@ -1,13 +1,101 @@
 "use client";
 
 import { useState } from "react";
+import type { AnalyzeApiResponse } from "@/lib/types/market";
+
+type AnalyzeStatus = "idle" | "fetching_market" | "running_engine" | "rendering";
 
 type ChatCommandBoxProps = {
   placeholder?: string;
+  onAnalysis: (response: AnalyzeApiResponse) => void;
+  onStatusChange?: (status: AnalyzeStatus) => void;
 };
 
-export function ChatCommandBox({ placeholder = "contoh: cek koin ZEC" }: ChatCommandBoxProps) {
+function parseSymbol(command: string): string | null {
+  const cleaned = command
+    .toUpperCase()
+    .replace(/[?!.:,;]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const ignored = new Set([
+    "CEK",
+    "KOIN",
+    "ANALISIS",
+    "ANALISA",
+    "LIHAT",
+    "LONG",
+    "SHORT",
+    "ATAU",
+    "DAN",
+    "COIN",
+    "TOKEN",
+    "MARKET"
+  ]);
+
+  const candidates = cleaned.split(" ").filter((token) => /^[A-Z0-9]{2,15}$/.test(token) && !ignored.has(token));
+  return candidates[0] ?? null;
+}
+
+export function ChatCommandBox({ placeholder = "contoh: cek koin ZEC", onAnalysis, onStatusChange }: ChatCommandBoxProps) {
   const [command, setCommand] = useState("");
+  const [status, setStatus] = useState<AnalyzeStatus>("idle");
+  const [parsedSymbol, setParsedSymbol] = useState<string | null>(null);
+
+  function updateStatus(nextStatus: AnalyzeStatus) {
+    setStatus(nextStatus);
+    onStatusChange?.(nextStatus);
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const symbol = parseSymbol(command);
+    setParsedSymbol(symbol);
+
+    if (!symbol) {
+      onAnalysis({
+        ok: false,
+        reason: "invalid_symbol",
+        message: "Tulis symbol koin yang jelas. Contoh: cek koin ZEC, analisis BTC, ETH long atau short?"
+      });
+      return;
+    }
+
+    try {
+      updateStatus("fetching_market");
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      updateStatus("running_engine");
+
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ symbol }),
+        cache: "no-store"
+      });
+
+      const payload = (await response.json()) as AnalyzeApiResponse;
+      updateStatus("rendering");
+      onAnalysis(payload);
+    } catch {
+      onAnalysis({
+        ok: false,
+        reason: "python_engine_error",
+        message: "Analyze request failed before rendering visual result"
+      });
+    } finally {
+      setTimeout(() => updateStatus("idle"), 180);
+    }
+  }
+
+  const statusText = {
+    idle: "Ready",
+    fetching_market: "Fetching market data",
+    running_engine: "Running Python AI Neuron Engine",
+    rendering: "Rendering visual analysis"
+  }[status];
 
   return (
     <section className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 shadow-glow">
@@ -15,11 +103,11 @@ export function ChatCommandBox({ placeholder = "contoh: cek koin ZEC" }: ChatCom
         <p className="text-sm uppercase tracking-[0.3em] text-cyan-300">Command Center</p>
         <h2 className="mt-1 text-xl font-semibold text-white">Chat command box</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Tahap ini masih mock. Nanti command akan diproses server-side ke AI neuron math engine.
+          Tulis command bebas seperti cek koin ZEC, analisis BTC, atau ETH long atau short.
         </p>
       </div>
 
-      <form className="flex flex-col gap-3 sm:flex-row" onSubmit={(event) => event.preventDefault()}>
+      <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSubmit}>
         <input
           value={command}
           onChange={(event) => setCommand(event.target.value)}
@@ -28,15 +116,17 @@ export function ChatCommandBox({ placeholder = "contoh: cek koin ZEC" }: ChatCom
         />
         <button
           type="submit"
-          className="min-h-12 rounded-2xl bg-cyan-400 px-5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+          disabled={status !== "idle"}
+          className="min-h-12 rounded-2xl bg-cyan-400 px-5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Analyze mock
+          Analyze
         </button>
       </form>
 
-      {command ? (
-        <p className="mt-3 text-xs text-slate-500">Draft command: <span className="text-slate-300">{command}</span></p>
-      ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <span>Status: <span className="text-slate-300">{statusText}</span></span>
+        {parsedSymbol ? <span>Symbol: <span className="text-cyan-200">{parsedSymbol}</span></span> : null}
+      </div>
     </section>
   );
 }

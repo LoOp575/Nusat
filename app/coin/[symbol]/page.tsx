@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AgentVisualPanel } from "@/components/agent/AgentVisualPanel";
 import { AppShell } from "@/components/ui/AppShell";
 import { getCoinMarketData } from "@/lib/services/marketDataService";
+import type { NormalizedMarketData } from "@/lib/types/market";
 
 type CoinPageProps = {
   params: {
@@ -16,7 +17,7 @@ function formatUsd(value: number): string {
 
 export default async function CoinPage({ params }: CoinPageProps) {
   const symbol = params.symbol.toUpperCase();
-  let coin = null;
+  let coin: NormalizedMarketData | null = null;
   let error = "";
 
   try {

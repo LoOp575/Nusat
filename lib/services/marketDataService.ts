@@ -15,10 +15,15 @@ function computeMissingFields(data: Partial<NormalizedMarketData>): string[] {
     "fundingRate",
     "openInterest",
     "longShortRatio",
-    "candles"
+    "candles",
+    "priceSeries"
   ];
 
-  return requiredOptionalFields.filter((field) => data[field] === undefined);
+  return requiredOptionalFields.filter((field) => {
+    if (field === "candles") return !data.candles?.length;
+    if (field === "priceSeries") return !data.priceSeries?.length;
+    return data[field] === undefined;
+  });
 }
 
 function enrichDataQuality(data: NormalizedMarketData, sourcesUsed: string[]): NormalizedMarketData {
@@ -31,6 +36,7 @@ function enrichDataQuality(data: NormalizedMarketData, sourcesUsed: string[]): N
       hasDerivativesData:
         data.fundingRate !== undefined || data.openInterest !== undefined || data.longShortRatio !== undefined,
       hasCandles: Boolean(data.candles?.length),
+      hasPriceSeries: Boolean(data.priceSeries?.length),
       missingFields,
       sourcesUsed: uniqueSources([...data.dataQuality.sourcesUsed, ...sourcesUsed])
     }
@@ -92,18 +98,22 @@ export async function getCoinMarketData(symbol: string): Promise<NormalizedMarke
   const merged: NormalizedMarketData = {
     ...spot,
     name: spot.name ?? cryptoRank?.name,
-    price: spot.price ?? cryptoRank?.price,
-    change24h: spot.change24h ?? cryptoRank?.change24h,
-    volume24h: spot.volume24h ?? cryptoRank?.volume24h,
+    price: spot.price,
+    change24h: spot.change24h,
+    volume24h: spot.volume24h,
     marketCap: spot.marketCap ?? cryptoRank?.marketCap,
     fundingRate: derivatives?.fundingRate,
     openInterest: derivatives?.openInterest,
     longShortRatio: derivatives?.longShortRatio,
     candles: derivatives?.candles,
+    priceSeries: derivatives?.candles?.length
+      ? derivatives.candles.map((candle) => ({ timestamp: candle.timestamp, price: candle.close }))
+      : spot.priceSeries,
     dataQuality: {
       hasSpotData: true,
       hasDerivativesData: false,
       hasCandles: false,
+      hasPriceSeries: false,
       missingFields: [],
       sourcesUsed
     }

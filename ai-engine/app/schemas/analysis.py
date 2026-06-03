@@ -49,6 +49,11 @@ class ScenarioOutput(AliasModel):
     probability: int
 
 
+class DataQualityOutput(AliasModel):
+    quality: Literal["full", "partial", "insufficient"]
+    notes: List[str] = Field(default_factory=list)
+
+
 class AnalysisOutput(AliasModel):
     symbol: str
     decision: DecisionOutput
@@ -56,3 +61,4 @@ class AnalysisOutput(AliasModel):
     neural_scores: NeuralScoresOutput = Field(alias="neuralScores")
     market_making: MarketMakingOutput = Field(alias="marketMaking")
     scenarios: List[ScenarioOutput]
+    data_quality: DataQualityOutput = Field(alias="dataQuality")

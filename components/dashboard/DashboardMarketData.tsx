@@ -5,13 +5,15 @@ import { AgentVisualPanel } from "@/components/agent/AgentVisualPanel";
 import { ChatCommandBox } from "@/components/dashboard/ChatCommandBox";
 import { TopDumpList } from "@/components/dashboard/TopDumpList";
 import { TopPumpList } from "@/components/dashboard/TopPumpList";
-import type { MarketApiResponse, NormalizedMarketData } from "@/lib/types/market";
+import type { AnalyzeApiError, AnalyzeApiResponse, EngineAnalysis, MarketApiResponse, NormalizedMarketData } from "@/lib/types/market";
 
 type DataState = {
   loading: boolean;
   data: NormalizedMarketData[];
   error?: string;
 };
+
+type AnalyzeStatus = "idle" | "fetching_market" | "running_engine" | "rendering";
 
 async function fetchMarketList(endpoint: string): Promise<NormalizedMarketData[]> {
   const response = await fetch(endpoint, { cache: "no-store" });
@@ -27,6 +29,9 @@ async function fetchMarketList(endpoint: string): Promise<NormalizedMarketData[]
 export function DashboardMarketData() {
   const [pumps, setPumps] = useState<DataState>({ loading: true, data: [] });
   const [dumps, setDumps] = useState<DataState>({ loading: true, data: [] });
+  const [analysis, setAnalysis] = useState<EngineAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState<AnalyzeApiError | null>(null);
+  const [analyzeStatus, setAnalyzeStatus] = useState<AnalyzeStatus>("idle");
 
   useEffect(() => {
     let isMounted = true;
@@ -52,6 +57,23 @@ export function DashboardMarketData() {
     };
   }, []);
 
+  function handleAnalysis(response: AnalyzeApiResponse) {
+    if (response.ok) {
+      setAnalysis(response.analysis);
+      setAnalysisError(null);
+      return;
+    }
+
+    setAnalysis(null);
+    setAnalysisError(response);
+  }
+
+  const loadingLabel = analyzeStatus === "idle" ? undefined : {
+    fetching_market: "Fetching market data",
+    running_engine: "Running Python AI Neuron Engine",
+    rendering: "Rendering visual analysis"
+  }[analyzeStatus];
+
   return (
     <>
       <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
@@ -60,8 +82,8 @@ export function DashboardMarketData() {
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[420px_1fr]">
-        <ChatCommandBox />
-        <AgentVisualPanel />
+        <ChatCommandBox onAnalysis={handleAnalysis} onStatusChange={setAnalyzeStatus} />
+        <AgentVisualPanel analysis={analysis} error={analysisError} loadingLabel={loadingLabel} />
       </div>
     </>
   );

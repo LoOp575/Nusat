@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 import type { AnalyzeApiResponse } from "@/lib/types/market";
 
 type AnalyzeStatus = "idle" | "fetching_market" | "running_engine" | "rendering";
@@ -47,7 +48,7 @@ export function ChatCommandBox({ placeholder = "contoh: cek koin ZEC", onAnalysi
     onStatusChange?.(nextStatus);
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const symbol = parseSymbol(command);

@@ -34,6 +34,29 @@ def health_check() -> dict[str, str]:
     }
 
 
+def _analysis_data_quality(market: MarketInput) -> dict[str, object]:
+    notes: list[str] = []
+    if market.candles:
+        quality = "full"
+        notes.append("candles_available")
+    elif market.price_series:
+        quality = "partial"
+        notes.append("price_series_only")
+        notes.append("pressure_uses_volume_proxy")
+    else:
+        quality = "insufficient"
+        notes.append("missing_candles_or_price_series")
+
+    if market.funding_rate is None:
+        notes.append("missing_funding_rate")
+    if market.open_interest is None:
+        notes.append("missing_open_interest")
+    if market.long_short_ratio is None:
+        notes.append("missing_long_short_ratio")
+
+    return {"quality": quality, "notes": notes}
+
+
 @app.post("/analyze", response_model=AnalysisOutput, response_model_by_alias=True)
 def analyze_market(market: MarketInput) -> dict[str, object]:
     pressure = run_pressure_neuron(market)
@@ -56,4 +79,5 @@ def analyze_market(market: MarketInput) -> dict[str, object]:
         "neuralScores": neural_scores,
         "marketMaking": public_market_making,
         "scenarios": scenarios,
+        "dataQuality": _analysis_data_quality(market),
     }

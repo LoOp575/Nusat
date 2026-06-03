@@ -9,10 +9,16 @@ export type NormalizedCandle = {
   volume: number;
 };
 
+export type NormalizedPricePoint = {
+  timestamp: number;
+  price: number;
+};
+
 export type DataQuality = {
   hasSpotData: boolean;
   hasDerivativesData: boolean;
   hasCandles: boolean;
+  hasPriceSeries?: boolean;
   missingFields: string[];
   sourcesUsed: string[];
 };
@@ -28,6 +34,7 @@ export type NormalizedMarketData = {
   openInterest?: number;
   longShortRatio?: number;
   candles?: NormalizedCandle[];
+  priceSeries?: NormalizedPricePoint[];
   dataQuality: DataQuality;
 };
 
@@ -44,16 +51,65 @@ export type MarketApiSuccess<T> = {
 
 export type MarketApiResponse<T> = MarketApiSuccess<T> | MarketApiError;
 
-export type Scenario = {
-  label: string;
-  probability: number;
+export type DecisionName = "LONG_NOW" | "SHORT_NOW" | "SCALP_ONLY" | "WAIT_FOR_CONFIRMATION" | "AVOID";
+
+export type EngineDataQuality = {
+  quality: "full" | "partial" | "insufficient";
+  notes: string[];
 };
 
-export type AgentAnalysis = {
+export type EngineAnalysis = {
   symbol: string;
-  signalScore: number;
-  liquidityScore: number;
-  crowdScore: number;
-  riskLevel: "low" | "medium" | "high";
-  scenarios: Scenario[];
+  decision: {
+    decision: DecisionName;
+    confidence: number;
+    tradeMode: string;
+    riskLevel: "low" | "medium" | "high";
+    dominantSide: "bullish" | "bearish" | "neutral";
+    invalidationHint: string;
+    dominantReasons: string[];
+  };
+  pressure: {
+    buyPressureIntegral: number;
+    sellPressureIntegral: number;
+    momentumVelocity: number;
+    momentumAcceleration: number;
+    volatilityPressure: number;
+  };
+  neuralScores: {
+    bullishPressure: number;
+    bearishPressure: number;
+    trapProbability: number;
+    riskScore: number;
+    liquidityDominance: number;
+    marketStrength: number;
+  };
+  marketMaking: {
+    reservationPrice: number;
+    totalSpread: number;
+    bidPrice: number;
+    askPrice: number;
+    liquidityRisk: number;
+  };
+  scenarios: Array<{
+    name: string;
+    probability: number;
+  }>;
+  dataQuality: EngineDataQuality;
 };
+
+export type AnalyzeApiSuccess = {
+  ok: true;
+  source: "python_ai_engine";
+  analysis: EngineAnalysis;
+};
+
+export type AnalyzeApiError = {
+  ok: false;
+  reason: "invalid_symbol" | "data_incomplete" | "python_engine_offline" | "python_engine_error" | "market_data_error";
+  message: string;
+  dataQuality?: unknown;
+  details?: string;
+};
+
+export type AnalyzeApiResponse = AnalyzeApiSuccess | AnalyzeApiError;

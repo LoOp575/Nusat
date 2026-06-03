@@ -1,4 +1,4 @@
-import type { NormalizedMarketData } from "@/lib/types/market";
+import type { NormalizedMarketData, NormalizedPricePoint } from "@/lib/types/market";
 
 const COINRANKING_BASE_URL = "https://api.coinranking.com/v2";
 
@@ -10,6 +10,7 @@ type CoinRankingCoin = {
   change?: string;
   "24hVolume"?: string;
   marketCap?: string;
+  sparkline?: Array<string | null>;
 };
 
 type CoinRankingCoinsResponse = {
@@ -38,6 +39,19 @@ function toNumber(value: unknown): number | undefined {
   if (value === null || value === undefined || value === "") return undefined;
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : undefined;
+}
+
+function normalizeSparkline(sparkline?: Array<string | null>): NormalizedPricePoint[] | undefined {
+  const values = sparkline?.map(toNumber).filter((value): value is number => value !== undefined) ?? [];
+  if (values.length < 2) return undefined;
+
+  const now = Math.floor(Date.now() / 1000);
+  const step = Math.floor((24 * 60 * 60) / Math.max(values.length - 1, 1));
+
+  return values.map((price, index) => ({
+    timestamp: now - (values.length - 1 - index) * step,
+    price
+  }));
 }
 
 async function coinRankingFetch<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
@@ -71,8 +85,10 @@ export function normalizeCoinRankingCoin(coin: CoinRankingCoin): NormalizedMarke
   }
 
   const marketCap = toNumber(coin.marketCap);
+  const priceSeries = normalizeSparkline(coin.sparkline);
   const missingFields: string[] = [];
   if (marketCap === undefined) missingFields.push("marketCap");
+  if (!priceSeries?.length) missingFields.push("priceSeries");
   missingFields.push("fundingRate", "openInterest", "longShortRatio", "candles");
 
   return {
@@ -82,10 +98,12 @@ export function normalizeCoinRankingCoin(coin: CoinRankingCoin): NormalizedMarke
     change24h,
     volume24h,
     marketCap,
+    priceSeries,
     dataQuality: {
       hasSpotData: true,
       hasDerivativesData: false,
       hasCandles: false,
+      hasPriceSeries: Boolean(priceSeries?.length),
       missingFields,
       sourcesUsed: ["CoinRanking"]
     }

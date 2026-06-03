@@ -21,13 +21,17 @@ def run_fusion_neuron(
     volatility = _n(float(pressure["volatilityPressure"]))
     liquidity_risk = _n(float(market_making["liquidityRisk"]))
 
+    funding_rate = market.funding_rate or 0.0
+    open_interest = market.open_interest or 0.0
+    long_short_ratio = market.long_short_ratio or 1.0
+
     change_positive = normalize_ratio(market.change_24h, 0.0, 15.0)
     change_negative = normalize_ratio(-market.change_24h, 0.0, 15.0)
     volume_pressure = normalize_ratio(market.volume_24h, 10_000_000.0, 500_000_000.0)
-    open_interest_pressure = normalize_ratio(market.open_interest, 5_000_000.0, 250_000_000.0)
-    long_bias = normalize_ratio(market.long_short_ratio, 1.0, 2.2)
-    short_bias = normalize_ratio(1.0 / max(market.long_short_ratio, 1e-9), 1.0, 2.2)
-    funding_abs = normalize_ratio(abs(market.funding_rate), 0.0, 0.04)
+    open_interest_pressure = normalize_ratio(open_interest, 5_000_000.0, 250_000_000.0)
+    long_bias = normalize_ratio(long_short_ratio, 1.0, 2.2)
+    short_bias = normalize_ratio(1.0 / max(long_short_ratio, 1e-9), 1.0, 2.2)
+    funding_abs = normalize_ratio(abs(funding_rate), 0.0, 0.04)
 
     velocity_pos = 1.0 if velocity_raw > 0 else 0.0
     velocity_neg = 1.0 if velocity_raw < 0 else 0.0

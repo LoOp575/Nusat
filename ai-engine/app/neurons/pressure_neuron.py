@@ -10,18 +10,48 @@ from app.math_core.normalization import clamp_0_100, normalize_signed, percentag
 from app.schemas.market import MarketInput
 
 
-def run_pressure_neuron(market: MarketInput) -> dict[str, float | int]:
-    candles = market.candles
-    closes = [candle.close for candle in candles]
-
+def _pressure_from_candles(market: MarketInput) -> tuple[list[float], list[float], list[float]]:
+    closes = [candle.close for candle in market.candles]
     directional_pressure = []
-    for candle in candles:
+
+    for candle in market.candles:
         average_price = max((candle.open + candle.close) / 2.0, 1e-9)
         candle_move = candle.close - candle.open
         directional_pressure.append((candle_move / average_price) * candle.volume)
 
     buy_curve = [max(value, 0.0) for value in directional_pressure]
     sell_curve = [abs(min(value, 0.0)) for value in directional_pressure]
+    return closes, buy_curve, sell_curve
+
+
+def _pressure_from_price_series(market: MarketInput) -> tuple[list[float], list[float], list[float]]:
+    prices = [point.price for point in market.price_series]
+    if len(prices) < 2:
+        return prices, [], []
+
+    volume_proxy = market.volume_24h / max(len(prices) - 1, 1)
+    buy_curve = []
+    sell_curve = []
+
+    for previous, current in zip(prices[:-1], prices[1:]):
+        change = current - previous
+        average_price = max((previous + current) / 2.0, 1e-9)
+        pressure_value = abs(change / average_price) * volume_proxy
+        if change >= 0:
+            buy_curve.append(pressure_value)
+            sell_curve.append(0.0)
+        else:
+            buy_curve.append(0.0)
+            sell_curve.append(pressure_value)
+
+    return prices, buy_curve, sell_curve
+
+
+def run_pressure_neuron(market: MarketInput) -> dict[str, float | int]:
+    if market.candles:
+        closes, buy_curve, sell_curve = _pressure_from_candles(market)
+    else:
+        closes, buy_curve, sell_curve = _pressure_from_price_series(market)
 
     buy_raw = pressure_integral(buy_curve)
     sell_raw = pressure_integral(sell_curve)

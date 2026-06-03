@@ -1,10 +1,12 @@
 import { MarketList } from "@/components/dashboard/MarketList";
-import type { MarketCoin } from "@/lib/types/market";
+import type { NormalizedMarketData } from "@/lib/types/market";
 
 type TopDumpListProps = {
-  coins: MarketCoin[];
+  coins: NormalizedMarketData[];
+  loading?: boolean;
+  error?: string;
 };
 
-export function TopDumpList({ coins }: TopDumpListProps) {
-  return <MarketList title="Top 10 Dump" coins={coins} tone="danger" />;
+export function TopDumpList({ coins, loading, error }: TopDumpListProps) {
+  return <MarketList title="Top 10 Dump" coins={coins} tone="danger" loading={loading} error={error} />;
 }

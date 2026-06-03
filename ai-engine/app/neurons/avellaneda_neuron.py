@@ -8,17 +8,27 @@ from app.schemas.market import MarketInput
 
 
 def _estimate_volatility_squared(market: MarketInput) -> float:
-    ranges = []
-    for candle in market.candles:
-        mid = max((candle.high + candle.low) / 2.0, 1e-9)
-        ranges.append((candle.high - candle.low) / mid)
+    if market.candles:
+        ranges = []
+        for candle in market.candles:
+            mid = max((candle.high + candle.low) / 2.0, 1e-9)
+            ranges.append((candle.high - candle.low) / mid)
 
-    if not ranges:
-        return 0.0
+        if ranges:
+            range_volatility = float(np.std(ranges)) if len(ranges) > 1 else float(ranges[0])
+            price_volatility = max(range_volatility * market.price, 1e-9)
+            return price_volatility ** 2
 
-    range_volatility = float(np.std(ranges)) if len(ranges) > 1 else float(ranges[0])
-    price_volatility = max(range_volatility * market.price, 1e-9)
-    return price_volatility ** 2
+    prices = [point.price for point in market.price_series]
+    if len(prices) >= 2:
+        arr = np.asarray(prices, dtype=float)
+        previous = arr[:-1]
+        current = arr[1:]
+        returns = np.divide(current - previous, previous, out=np.zeros_like(current), where=previous != 0)
+        price_volatility = max(float(np.std(returns)) * market.price, 1e-9)
+        return price_volatility ** 2
+
+    return 0.0
 
 
 def run_avellaneda_neuron(market: MarketInput) -> dict[str, float | int]:

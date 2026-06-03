@@ -9,13 +9,23 @@ def _to_array(values: Iterable[float]) -> np.ndarray:
     return np.asarray(list(values), dtype=float)
 
 
+def _trapezoid_integral(arr: np.ndarray, dt: float) -> float:
+    if hasattr(np, "trapezoid"):
+        return float(np.trapezoid(arr, dx=dt))
+
+    total = 0.0
+    for left, right in zip(arr[:-1], arr[1:]):
+        total += (float(left) + float(right)) * 0.5 * dt
+    return total
+
+
 def discrete_integral(values: Iterable[float], dt: float = 1.0) -> float:
     arr = _to_array(values)
     if arr.size == 0:
         return 0.0
     if arr.size == 1:
         return float(arr[0] * dt)
-    return float(np.trapz(arr, dx=dt))
+    return _trapezoid_integral(arr, dt)
 
 
 def discrete_derivative(values: Iterable[float], dt: float = 1.0) -> List[float]:
